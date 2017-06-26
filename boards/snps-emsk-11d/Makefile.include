@@ -1,0 +1,22 @@
+# define the cpu used by the EMSK board
+export CPU = arc_common
+
+# board type
+export ARC_BOARD = emsk
+
+# linker script file
+export LINK_SCRIPT ?= $(RIOTBOARD)/snps-emsk-11d/linkscript/linker.ld
+
+# target dependent compile option
+export COMPILE_OPT_ARGFILE ?= $(RIOTBOARD)/snps-emsk-11d/gcc.arg
+
+
+# set default port depending on operating system
+PORT_LINUX ?= /dev/ttyUSB1
+
+# setup serial terminal
+include $(RIOTMAKE)/tools/serial.inc.mk
+
+# this board uses openocd
+include $(RIOTMAKE)/tools/openocd.inc.mk
+

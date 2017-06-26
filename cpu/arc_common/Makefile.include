@@ -1,0 +1,8 @@
+# include module specific includes
+
+USEMODULE += arc_common_periph embARC newlib xtimer
+
+
+export INCLUDES += -I$(RIOTCPU)/arc_common/embARC
+
+include $(RIOTMAKE)/arch/arc.inc.mk

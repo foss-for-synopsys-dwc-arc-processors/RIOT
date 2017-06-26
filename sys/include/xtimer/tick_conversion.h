@@ -121,7 +121,22 @@ inline static uint64_t _xtimer_usec_from_ticks64(uint64_t ticks) {
     uint64_t usec = (uint64_t)ticks * 15625ul;
     return (usec >> 9); /* equivalent to (usec / 512) */
 }
+#elif XTIMER_HZ == (100)
+inline static uint32_t _xtimer_usec_from_ticks(uint32_t ticks) {
+    return ticks * 10000; /* no-op */
+}
 
+inline static uint64_t _xtimer_usec_from_ticks64(uint64_t ticks) {
+    return ticks * 10000; /* no-op */
+}
+
+inline static uint32_t _xtimer_ticks_from_usec(uint32_t usec) {
+    return usec / 10000; /* no-op */
+}
+
+inline static uint64_t _xtimer_ticks_from_usec64(uint64_t usec) {
+    return usec / 10000; /* no-op */
+}
 #else
 /* No matching implementation found, try to give meaningful error messages */
 #if ((XTIMER_HZ % 15625) == 0)
