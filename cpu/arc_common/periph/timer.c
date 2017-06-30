@@ -36,16 +36,12 @@
 static timer_cb_t arc_timer0_callback;
 static void *   arc_timer0_cb_arg;
 static unsigned int timer0_tick;
-static unsigned int timer0_timeout;
 
 static void arc_timer0_isr(void *ptr)
 {
     arc_timer_int_clear(0);
-    timer0_tick++;
-    if (timer0_tick == timer0_timeout) {
-        timer0_timeout = 0;
-        arc_timer0_callback(arc_timer0_cb_arg, 0);
-    }
+    timer0_tick += _arc_aux_read(AUX_TIMER0_LIMIT) + _arc_aux_read(AUX_TIMER0_CNT);
+    arc_timer0_callback(arc_timer0_cb_arg, 0);
 }
 #endif
 
@@ -54,16 +50,12 @@ static void arc_timer0_isr(void *ptr)
 static timer_cb_t arc_timer1_callback;
 static void *   arc_timer1_cb_arg;
 static unsigned int timer1_tick;
-static unsigned int timer1_timeout;
 
 static void arc_timer1_isr(void *ptr)
 {
     arc_timer_int_clear(1);
-    timer1_tick++;
-    if (timer1_tick == timer1_timeout) {
-        timer1_timeout = 0;
-        arc_timer1_callback(arc_timer1_cb_arg, 0);
-    }
+    timer1_tick += _arc_aux_read(AUX_TIMER1_LIMIT) + _arc_aux_read(AUX_TIMER1_CNT);
+    arc_timer1_callback(arc_timer0_cb_arg, 0);
 }
 #endif
 
@@ -79,8 +71,9 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
 #if ARC_FEATURE_TIMER0_PRESENT
         arc_timer0_callback = cb;
         arc_timer0_cb_arg = arg;
-        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, ARC_FEATURE_CPU_CLOCK_FREQ / XTIMER_HZ);
+        timer0_tick = 0;
         int_handler_install(ARC_FEATURE_TIMER0_VECTOR, arc_timer0_isr);
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, 0xffffffff);
         int_enable(ARC_FEATURE_TIMER0_VECTOR);
 #else
         return -1;
@@ -90,8 +83,9 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
 #if ARC_FEATURE_TIMER1_PRESENT
         arc_timer1_callback = cb;
         arc_timer1_cb_arg = arg;
-        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, ARC_FEATURE_CPU_CLOCK_FREQ / XTIMER_HZ);
+        timer1_tick = 0;
         int_handler_install(ARC_FEATURE_TIMER1_VECTOR, arc_timer1_isr);
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, 0xffffffff);
         int_enable(ARC_FEATURE_TIMER1_VECTOR);
 #else
         return -1;
@@ -104,17 +98,20 @@ int timer_init(tim_t dev, unsigned long freq, timer_cb_t cb, void *arg)
 /* Set a given timer channel for the given timer device */
 int timer_set(tim_t dev, int channel, unsigned int timeout)
 {
-    unsigned int now = timer_read(dev);
+    unsigned int now = 0;
 
 #if ARC_FEATURE_TIMER0_PRESENT
     if (dev == 0) {
-        timer0_timeout = now + timeout;
+        timer0_tick +=  _arc_aux_read(AUX_TIMER0_CNT);
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, timeout);
     }
 #endif
 
 #if ARC_FEATURE_TIMER1_PRESENT
     if (dev == 1) {
-        timer1_timeout = now + timeout;
+        timer1_tick +=  _arc_aux_read(AUX_TIMER1_CNT);
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, timeout);
+
     }
 #endif
     return 0;
@@ -125,13 +122,17 @@ int timer_set_absolute(tim_t dev, int channel, unsigned int value)
 {
 #if ARC_FEATURE_TIMER0_PRESENT
     if (dev == 0) {
-        timer0_timeout = value;
+        timer0_tick +=  _arc_aux_read(AUX_TIMER0_CNT);
+        value = value - timer0_tick;
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, value);
     }
 #endif
 
 #if ARC_FEATURE_TIMER1_PRESENT
     if (dev == 1) {
-        timer1_timeout = value;
+        timer1_tick +=  _arc_aux_read(AUX_TIMER1_CNT);
+        value = value - timer1_tick;
+        arc_timer_start(dev, TIMER_CTRL_IE|TIMER_CTRL_NH, value);
     }
 #endif
     return 0;
@@ -159,13 +160,13 @@ unsigned int timer_read(tim_t dev)
 {
 #if ARC_FEATURE_TIMER0_PRESENT
     if (dev == 0) {
-        return timer0_tick;
+        return timer0_tick + _arc_aux_read(AUX_TIMER0_CNT);
     }
 #endif
 
 #if ARC_FEATURE_TIMER1_PRESENT
     if (dev == 1) {
-        return timer1_tick;
+        return timer1_tick + _arc_aux_read(AUX_TIMER1_CNT);
     }
 #endif
     return -1;
